@@ -1,17 +1,19 @@
 # ============================================================
-#                     IMPORTS
+#                         IMPORTS
 # ============================================================
+
 import os
+import re
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, models, transforms
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.autograd import Function
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import pandas as pd
 from collections import Counter
-from torch.autograd import Function
 
 # ============================================================
 #                     GOOGLE DRIVE
@@ -19,11 +21,10 @@ from torch.autograd import Function
 from google.colab import drive
 drive.mount('/content/drive')
 
-import os
-import torch
-from torch.utils.data import Dataset
-from torchvision import datasets
 
+# ============================================================
+#                    DATASET FAIRNESS
+# ============================================================
 class FairnessImageFolder(Dataset):
     def __init__(self, root, csv_df, transform=None):
         """
@@ -95,7 +96,10 @@ val_transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-import re
+# ============================================================
+#                       CHARGEMENT DES CSV
+# ============================================================
+
 #train_dataset = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train_224', transform=train_transform)
 #val_dataset   = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/test_224',  transform=val_transform)
 
@@ -111,7 +115,9 @@ import re
 train_dataset = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_5fold/train_224', transform=train_transform)
 val_dataset   = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_5fold/test_224',  transform=val_transform)
 
-import pandas as pd
+# ============================================================
+#                     DATASETS & DATALOADERS
+# ============================================================
 
 # Lis les CSV
 df_normal = pd.read_csv("/content/drive/MyDrive/fairness/crop_5fold/crop_5fold/train/normal_train_fold5.csv")
@@ -148,9 +154,13 @@ val_dataset = FairnessImageFolder(
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=2)
 val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_workers=2)
 
-num_classes = len(train_dataset.classes)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+# ============================================================
+#                         MODELE
+# ============================================================
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+num_classes = len(train_dataset.classes)
 model = models.densenet121(weights=models.DenseNet121_Weights.IMAGENET1K_V1)
 # 1) On FREEZE totalement les features au début
 for param in model.features.parameters():
@@ -165,9 +175,10 @@ model.classifier = nn.Sequential(
 
 model = model.to(device)
 
-from collections import Counter
-import torch
 
+# ============================================================
+#                     POIDS DES CLASSES
+# ============================================================
 # Récupération des labels directement depuis ImageFolder
 targets = train_dataset.base.targets  # plus rapide que d'itérer sur tout le dataset
 class_counts = Counter(targets)
@@ -193,8 +204,11 @@ for idx, name in enumerate(train_dataset.classes):
 
 
 
-model = model.to(device)
-#criterion = nn.CrossEntropyLoss()
+
+
+# ============================================================
+#                         LOSS & OPTIM
+# ============================================================
 criterion = nn.CrossEntropyLoss(weight=class_weights)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
