@@ -84,9 +84,8 @@ Ce dossier contient les **meilleurs modèles obtenus pour chaque fold**, selon d
 - `Avec_pondération` : modèles entraînés avec pondération des classes dans la fonction de perte
 - `In-processing` : modèles entraînés à l’aide d’une méthode d’équité de type *in-processing*
 
----
 
-### 4. `Evaluation_Fairness`
+ #### c. `Evaluation_Fairness`
 
 Ce dossier contient les données de test organisées pour l’évaluation de l’équité.
 
@@ -100,14 +99,13 @@ Ce dossier contient les données de test organisées pour l’évaluation de l�
 
 Cette organisation permet une **évaluation fine de l’équité du modèle** sur différents sous-groupes de population.
 
----
 
-### 5. `Résultats_Evaluation`
+ #### d. `Résultats_Evaluation`
 
 Ce dossier regroupe les résultats des évaluations d’équité :
 - `Sans_pondération` :
-  - matrices de confusion
-  - tableaux de **Disparate Impact** pour les cinq folds
+  - `csv` : tableaux contenant les métriques d’évaluation (performances globales et métriques d’équité)
+  - `images` : visualisations et mises en forme graphiques des résultats
 - `Avec_pondération` :
   - résultats obtenus avec pondération des classes
 - `In-processing` :
