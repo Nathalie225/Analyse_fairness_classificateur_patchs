@@ -1,50 +1,63 @@
-# patch normal
-# ============================
-# IMPORTS
-# ============================
+"""
+Création_Classe_Normal
+====================================================
+Ce script décrit le processus de récupération des triplets d’images 
+composés d’une mammographie, de son masque de segmentation et du patch associé.
+À partir de ce triplet, quatre patchs dits normaux sont extraits,correspondant 
+aux régions situées au-dessus, en dessous, à gauche et à droite du patch d’intérêt.
+"""
+
+# ============================================================
+# Importations des  bibliothèque
+# ============================================================
+import os
+import shutil
+from os.path import basename
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from PIL import Image
+from imageio import imwrite
+from tqdm import tqdm
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from torchvision import datasets, models, transforms
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import os
+from torchvision import datasets, models, transforms
+
+# ============================================================
+# Google Colab 
+# ============================================================
 from google.colab import drive
-drive.mount('/content/drive')
-
-import numpy as np
-import pandas as pd
-from PIL import Image
-from os.path import basename
-import shutil
-from imageio import imwrite
+drive.mount("/content/drive")
+    
 
 
-# ============================
-# LECTURE CSV PATIENTS
-# ============================
+# ============================================================
+# Chargement du fichier CSV "patients_paths.csv" contenant,
+# pour chaque patient, les chemins des triplets d’images
+# ============================================================
 patient = pd.read_csv('/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/patients_paths.csv')
 
-# Supprimer lignes avec crop = NaN
+# Supprimer lignes avec crop (=patch) = NaN
 patient = patient.dropna(subset=['crop']).copy()
 
 # Garder seulement le nom du fichier
 patient["crop"] = [basename(x) for x in patient["crop"]]
 
-print("Aperçu patient CSV :")
-print(patient.head())
-
-save_root = "/content/drive/MyDrive/fairness/crop_5fold"
+# Répertoire de sauvegarde
+save_root = "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement"
 
 
 
-# ============================
-# FONCTION RP() : extrait la bounding box de l'image de segmentation
-# ============================
+# ============================================================
+# FONCTION RP() : Extraction de la bounding box d'une segmentation
+# ============================================================
 
 def RP(ROI_path):
-    # Charger l'image de segmentation
+    """
+    Extrait la bounding box (ymax, xmax, xmin, ymin) à partir du masque ROI.
+    """
     roi_img = Image.open(ROI_path).convert('L')
     roi_mask = np.array(roi_img) > 0
     y, x = roi_mask.shape
@@ -79,12 +92,12 @@ def RP(ROI_path):
 
 def extract_patches(ROI, img):
     ymax, xmax, xmin, ymin = ROI
-    H, W = img.shape  # dimensions de l'image
+    H, W = img.shape  
 
   
     R = img[ymin:ymax, xmin:xmax]
 
-    # Coordonnées pour les patches
+
     y1 = int(0*(ymax-ymin)+ymin)
     y2 = int(0*(xmax-xmin)+xmin)
     y3 = int((xmax-xmin)+xmin)
@@ -97,13 +110,13 @@ def extract_patches(ROI, img):
             return slice(0,0)
         return slice(start, end)
 
-    # Patches sécurisés
+
     P1 = img[safe_slice(y1-256, y1, H), safe_slice(xmin, xmax, W)]
     P2 = img[safe_slice(ymin, ymax, H), safe_slice(y3, y3+257, W)]
     P3 = img[safe_slice(y4, y4+257, H), safe_slice(xmin, xmax, W)]
     P4 = img[safe_slice(ymin, ymax, H), safe_slice(y2-256, y2, W)]
 
-    # Construire dictionnaire de patches
+
     patches_dict = {
         "P1_N": P1,
         "P2_N": P2,
@@ -114,7 +127,7 @@ def extract_patches(ROI, img):
     # Filtrer uniquement les patches non vides
     non_empty_patches = {name: p for name, p in patches_dict.items() if p.size > 0}
 
-    # Coordonnées des patches (pour affichage)
+    # Coordonnées des patches pour affichage
     boxes = {}
     for name, p in non_empty_patches.items():
         if name == "P1_N":
@@ -128,17 +141,21 @@ def extract_patches(ROI, img):
 
 
     return non_empty_patches, boxes
-# ============================
-# Sauvegarde patchs
-# ============================
+    
+# ============================================================
+# Sauvegarde des patches
+# ============================================================
+
 def save_patches(patches, folder, base_name):
-
-
     file_root = os.path.splitext(base_name)[0]
     for name, patch in patches.items():
         save_path = os.path.join(folder, f"{file_root}_{name}.jpg")
         imwrite(save_path, patch)
         print(f"Sauvegardé : {save_path}")
+
+# ============================================================
+# Affichage des patches
+# ============================================================
 
 def show_patches(full_img_path, patches, boxes):
     img = Image.open(full_img_path).convert("L")
@@ -151,7 +168,6 @@ def show_patches(full_img_path, patches, boxes):
     axes[0].set_title("Image originale")
     axes[0].axis("off")
 
-    # Dessiner rectangles
     for name, (x, y, w, h) in boxes.items():
         rect = plt.Rectangle((x, y), w, h, linewidth=2,
                              edgecolor=colors.get(name, "white"),
@@ -159,14 +175,15 @@ def show_patches(full_img_path, patches, boxes):
         axes[0].add_patch(rect)
         axes[0].text(x, y-5, name, color=colors.get(name, "white"), fontsize=12, weight="bold")
 
-    # Afficher les patches
     for i, (name, patch) in enumerate(patches.items()):
         axes[i+1].imshow(patch, cmap="gray")
         axes[i+1].set_title(f"Patch {name}")
         axes[i+1].axis("off")
     plt.show()
 
-
+# ============================================================
+# Récupération des chemins depuis le CSV
+# ============================================================
 
 def recupere(crop_name):
     row = patient[patient["crop"] == crop_name]
@@ -175,6 +192,10 @@ def recupere(crop_name):
     full = row["full"].values[0].strip()
     roi  = row["roi"].values[0].strip()
     return full, roi
+
+# ============================================================
+# Déplacement éventuel des fichiers
+# ============================================================
 
 for crop_name in patient["crop"].tolist():
     full_path, roi_path = recupere(crop_name)
@@ -213,9 +234,10 @@ for crop_name in patient["crop"].tolist():
         print(f"Image introuvable dans aucun dossier alternatif : {filename}")
 
 
+# ============================================================
+# Traitement des patchs avec barre de progression
+# ============================================================
 
-
-from tqdm import tqdm
 def process_patch_list(file_list, dst_folder):
     for crop_name in tqdm(file_list, desc=f"Traitement patches vers {dst_folder}", unit="crop"):
         full_path, roi_path = recupere(crop_name)
@@ -225,9 +247,10 @@ def process_patch_list(file_list, dst_folder):
         patches, boxes = extract_patches(ROI, img_array)
         save_patches(patches, dst_folder, crop_name)
         show_patches(full_path, patches, boxes)
-# ============================
-# TRAITEMENT DES 5 FOLDS AVEC BARRE GLOBALE
-# ============================
+        
+# ============================================================
+# Exemple : Traitement 5 folds (ici fold 2)
+# ============================================================
 base_dst = "/content/drive/MyDrive/fairness/crop_5fold"
 
 for i in [2]:
@@ -260,9 +283,10 @@ print("\n=== FIN DU SCRIPT ===")
 drive.flush_and_unmount()
 drive.mount('/content/drive', force_remount=True)
 
+# ============================================================
+# Génération CSV Normal
+# ============================================================
 
-# csv normal
-import os
 
 base_dst = "/content/drive/MyDrive/fairness/crop_5fold"
 
@@ -286,13 +310,13 @@ for i in range(5):
     cleaned_test = []
     cleaned_train = []
 
-    # Test
+
     for f in os.listdir(test_n_dir):
         name = clean_filename(f)
         if name not in cleaned_test:   # ici ça marche car cleaned_test existe
             cleaned_test.append(name)
 
-    # Train
+
     for f in os.listdir(train_n_dir):
         name = clean_filename(f)
         if name not in cleaned_train:
@@ -302,7 +326,7 @@ for i in range(5):
     normal_folds_train.append(cleaned_train)
 
 
-# Affichage
+# Affichage des tailles
 for i in range(5):
     print(f"Fold {i+1} - Val NORMAL: {len(normal_folds[i])}, "
           f"Train NORMAL: {len(normal_folds_train[i])}")
@@ -310,21 +334,23 @@ for i in range(5):
 
 save_root = "/content/drive/MyDrive/fairness/crop_5fold"
 
+# ============================================================
+# Sauvegarde des CSV K-Fold
+# ============================================================
 
 for i in range(5):
     fold_id = i + 1
     print(f"\n=== Sauvegarde Fold {fold_id} ===")
 
-    # Dossiers
     fold_dir = os.path.join(save_root, f"crop_{fold_id}fold")
 
 
-    # DataFrame filtrés
+
     valN   = test_df[test_df["cropped image file path"].isin(normal_folds[i])]
     trainN = test_df[test_df["cropped image file path"].isin(normal_folds_train[i])]
 
 
-    # Sauvegarde CSV
+
     valN.to_csv(f"{fold_dir}/test/normal_test_fold{fold_id}.csv", index=False)
     trainN.to_csv(f"{fold_dir}/train/normal_train_fold{fold_id}.csv", index=False)
 
@@ -333,5 +359,3 @@ for i in range(5):
 
 print("\n🎉 FIN — Tous les CSV K-Fold ont été sauvegardés avec succès !")
 
-drive.flush_and_unmount()
-drive.mount('/content/drive', force_remount=True)
