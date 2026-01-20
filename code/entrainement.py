@@ -1,6 +1,9 @@
 # ============================================================
-#         IMPORTS
+#                      IMPORTS
 # ============================================================
+import os
+from collections import Counter
+
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -8,8 +11,8 @@ from torchvision import datasets, models, transforms
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import os
 
+# Google Drive mount
 from google.colab import drive
 drive.mount('/content/drive')
 
@@ -35,10 +38,9 @@ val_transform = transforms.Compose([
 
 
 
-# Entrainement fold par fold
-
-# 1. Télécharge les images
-
+# ============================================================
+#                    CHEMINS DES FICHIERS
+# ============================================================
 
 #train_dataset = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train_224', transform=train_transform)
 #val_dataset   = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/test_224',  transform=val_transform)
@@ -51,6 +53,10 @@ val_transform = transforms.Compose([
 #train_dataset = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_4fold/train_224', transform=train_transform)
 #val_dataset   = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_4fold/test_224',  transform=val_transform)
 
+# ============================================================
+#                  CHARGEMENT DES DATASETS
+# ============================================================
+
 train_dataset = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_5fold/train_224', transform=train_transform)
 val_dataset   = datasets.ImageFolder('/content/drive/MyDrive/fairness/crop_5fold/crop_5fold/test_224',  transform=val_transform)
 
@@ -59,8 +65,9 @@ val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_worke
 
 num_classes = len(train_dataset.classes)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# 2. Initialise le modèle pré-entrainé
+# ============================================================
+#                   INITIALISATION DU MODÈLE
+# ============================================================
 
 model = models.densenet121(weights=models.DenseNet121_Weights.IMAGENET1K_V1)
 # 1) On FREEZE totalement les features au début
@@ -75,8 +82,9 @@ model.classifier = nn.Sequential(
 )
 
 model = model.to(device)
-
-# 3. Prend en compte les différences de quantité selon images
+# ============================================================
+#                CALCUL DES POIDS DES CLASSES
+# ============================================================
 
 from collections import Counter
 import torch
@@ -104,11 +112,16 @@ for idx, name in enumerate(train_dataset.classes):
 
 
 model = model.to(device)
-#criterion = nn.CrossEntropyLoss()
+# ============================================================
+#                  LOSS, OPTIMIZER, SCHEDULER
+# ============================================================
 criterion = nn.CrossEntropyLoss(weight=class_weights)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
 
+# ============================================================
+#                      FONCTIONS D'ENTRAÎNEMENT
+# ============================================================
 def train_one_epoch():
     model.train()
     running_loss, correct, total = 0, 0, 0
@@ -148,6 +161,9 @@ def evaluate():
 
     return running_loss / total, correct / total
 
+# ============================================================
+#                      TRAINING PRINCIPAL
+# ============================================================
 history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
 epochs = 20
 early_stop_patience = 5
@@ -197,9 +213,9 @@ for epoch in range(epochs):
         print("\n⛔ Early stopping : le modèle ne s'améliore plus.")
         break
 
-# =======================
-#   DEFREEZE PARTIEL APRÈS PHASE 1
-# =======================
+# ============================================================
+#                 FINE-TUNING (Déblocage partiel)
+# ============================================================
 
 print("\n🔓 Déblocage des dernières couches (fine-tuning progressif)…")
 
@@ -217,6 +233,11 @@ for epoch in range(5):  # courte phase de fine-tuning
         best_val_loss = val_loss
         torch.save(model.state_dict(), os.path.join(output_dir, "best_model.pth"))
         print("🔥 Nouveau meilleur modèle sauvegardé !")
+
+
+# ============================================================
+#                  VISUALISATION DES RESULTATS
+# ============================================================
 plt.figure(figsize=(6,5))
 plt.plot(history["train_loss"], label="train")
 plt.plot(history["val_loss"], label="val")
@@ -239,6 +260,4 @@ plt.show()
 
 print("\n🎉 Script terminé ! Le meilleur modèle est enregistré dans :")
 print(os.path.join(output_dir, "best_model.pth"))
-drive.flush_and_unmount()
-from google.colab import drive
-drive.mount('/content/drive', force_remount=True)
+
