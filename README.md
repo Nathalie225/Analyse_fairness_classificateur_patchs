@@ -118,13 +118,10 @@ Ce dossier regroupe les résultats des évaluations d’équité :
 Le dépôt est organisé en plusieurs modules de code :
 
 - **`donnees`**  
-  Analyse exploratoire des données et répartition en **5 folds**, en respectant une distribution homogène des sous-classes.
+  Analyse exploratoire des données, répartition en **5 folds**, en respectant une distribution homogène des sous-classes, et construction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation. .
 
 - **`recadrage224`**  
   Recadrage des patchs en **224 × 224 pixels** et comparaison statistique entre patchs recadrés et non recadrés.
-
-- **`creation_classe_normale`**  
-  Construction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
 
 - **`entrainement`**  
   Entraînement des modèles selon une validation croisée à 5 folds, avec ou sans pondération des classes dans la fonction de perte.
