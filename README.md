@@ -14,14 +14,17 @@
 
 ## Jeu de données
 
-Le projet repose sur le jeu de données **CBIS-DDSM (Curated Breast Imaging Subset of DDSM)**
+Le projet repose sur le jeu de données **CBIS-DDSM (Curated Breast Imaging Subset of DDSM)**.
 
-- Source : Kaggle – CBIS-DDSM  
-  https://www.kaggle.com/datasets
+- **Source** : Kaggle – CBIS-DDSM  
+  https://www.kaggle.com/datasets/awsaf49/cbis-ddsm-breast-cancer-image-dataset
+
+---
 
 ### Réorganisation des données
 
-Les données ont été **réorganisées** afin de faciliter leur utilisation dans les expérimentations. La version restructurée est accessible via le lien Google Drive suivant :
+Les données ont été **réorganisées** afin de faciliter leur exploitation dans les différentes expérimentations.  
+La version restructurée est accessible via le lien Google Drive suivant :
 
 https://drive.google.com/drive/folders/1aJVvIv6liJcf8Z_EUUGx_wAUQg8apbb1?usp=sharing
 
@@ -31,8 +34,8 @@ L’arborescence se compose de **trois dossiers principaux** :
 
 ### 1. `Mammographie`
 
-Contient les mammographies complètes, organisées :
-- selon le découpage **train / test** original de CBIS-DDSM
+Ce dossier contient les mammographies complètes, organisées :
+- selon le découpage **train / test** original du dataset CBIS-DDSM
 - puis selon le **diagnostic** :
   - `BENIGN`
   - `MALIGNANT`
@@ -42,7 +45,7 @@ Contient les mammographies complètes, organisées :
 
 ### 2. `Segmentation`
 
-Contient les **masques de segmentation** permettant de localiser les anomalies sur les mammographies.
+Ce dossier contient les **masques de segmentation** permettant de localiser les anomalies sur les mammographies.
 
 - La structure est identique à celle du dossier `Mammographie`
 - Les dossiers `Mammographie` et `Segmentation` sont utilisés conjointement dans le code pour construire la **classe `NORMAL`**
@@ -51,20 +54,20 @@ Contient les **masques de segmentation** permettant de localiser les anomalies s
 
 ### 3. `Patchs_Mammographie_5fold`
 
-Contient les **patchs de mammographie** centrés sur les anomalies annotées par les cliniciens.  
-Les données sont organisées selon une **validation croisée en 5 folds**, avec deux sous-dossiers principaux :
+Ce dossier contient les **patchs de mammographie** centrés sur les anomalies annotées par les cliniciens.  
+Les données sont organisées selon une **validation croisée en 5 folds**, et se divisent en deux sous-dossiers principaux :
 
 #### a. `Entrainement`
 
 - Un sous-dossier par **fold**
 - Chaque fold contient :
   - un dossier `Métadonnées` :
-    - fichiers CSV indiquant la répartition **train / test**
-    - informations sur :
-      - la **densité mammaire** (D1 à D4)
-      - le **type d’anomalie** (calcification ou masse)
+    - fichiers CSV décrivant la répartition **train / test**
+    - informations relatives :
+      - à la **densité mammaire** (D1 à D4)
+      - au **type d’anomalie** (calcification ou masse)
   - `Patch_224x224pixels` :
-    - patchs recadrés en **224×224 pixels**
+    - patchs recadrés en **224 × 224 pixels**
     - organisés par :
       - train / test
       - diagnostic
@@ -74,11 +77,22 @@ Les données sont organisées selon une **validation croisée en 5 folds**, avec
       - train / test
       - diagnostic
 
-#### b. `Evaluation_Fairness`
+#### b. `Résultats_Entrainement`
+
+Ce dossier contient les **meilleurs modèles obtenus pour chaque fold**, selon différentes stratégies d’apprentissage :
+- `Sans_pondération` : modèles entraînés sans pondération des classes
+- `Avec_pondération` : modèles entraînés avec pondération des classes dans la fonction de perte
+- `In-processing` : modèles entraînés à l’aide d’une méthode d’équité de type *in-processing*
+
+---
+
+### 4. `Evaluation_Fairness`
+
+Ce dossier contient les données de test organisées pour l’évaluation de l’équité.
 
 - Un sous-dossier par **fold**
-- Les patchs "test" y sont répartis selon tous les **sous-groupes sensibles**, définis par :
-  - la **densité mammaire** (D1, D2, D3, D4)
+- Les patchs de test sont répartis selon les **sous-groupes sensibles**, définis par :
+  - la **densité mammaire** : D1, D2, D3, D4
   - le **type d’anomalie** :
     - `calc` : calcification
     - `mass` : masse
@@ -88,7 +102,40 @@ Cette organisation permet une **évaluation fine de l’équité du modèle** su
 
 ---
 
+### 5. `Résultats_Evaluation`
+
+Ce dossier regroupe les résultats des évaluations d’équité :
+- `Sans_pondération` :
+  - matrices de confusion
+  - tableaux de **Disparate Impact** pour les cinq folds
+- `Avec_pondération` :
+  - résultats obtenus avec pondération des classes
+- `In-processing` :
+  - résultats obtenus avec la méthode adversariale
+
+---
+
 ## Structure du dépôt
 
-*(À compléter : scripts, notebooks, modèles, résultats, etc.)*
+Le dépôt est organisé en plusieurs modules de code :
+
+- **`donnees`**  
+  Analyse exploratoire des données et répartition en **5 folds**, en respectant une distribution homogène des sous-classes.
+
+- **`recadrage224`**  
+  Recadrage des patchs en **224 × 224 pixels** et comparaison statistique entre patchs recadrés et non recadrés.
+
+- **`creation_classe_normale`**  
+  Construction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
+
+- **`entrainement`**  
+  Entraînement des modèles selon une validation croisée à 5 folds, avec ou sans pondération des classes dans la fonction de perte.
+
+- **`evaluation`**  
+  Évaluation des modèles entraînés à l’aide des métriques :
+  - **Disparate Impact**
+  - **Equality of Odds**
+
+- **`adversarial`**  
+  Implémentation d’une méthode d’équité de type **in-processing**, basée sur une branche adversariale intégrée au modèle.
 
