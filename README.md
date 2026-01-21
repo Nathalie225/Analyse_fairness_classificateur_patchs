@@ -128,14 +128,11 @@ Ces fichiers listent les noms des images selon le **type d’anomalie** (calcifi
 - `mass_case_description_test_set.csv`  
   → Images de **masses** appartenant au **jeu de test**
 
----
-
 ##### Métadonnées des images
 - `dicom_info.csv`  
   Contient les **métadonnées** associées aux images, notamment :
   - densité mammaire
   - type d’anomalie
----
 
 ##### Fichier de correspondance patient ( crée pendant le projet )
 - `patients_paths.csv`
