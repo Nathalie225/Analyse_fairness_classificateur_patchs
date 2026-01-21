@@ -1,33 +1,35 @@
-
+"""
+Évaluation des modèles DenseNet121 sur sous-groupes d'images
+Calcul des matrices de confusion, métriques de performance et visualisations
+Auteur : [Votre Nom]
+Date : 2026-01-21
+"""
+# ================================================================
+# 0) IMPORTS
+# ================================================================
 # deplace les images du test vers des sous groupes
 from google.colab import drive
 drive.mount('/content/drive')
 
-import torch
-from torchvision import datasets, models, transforms
-from torch import nn, optim
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.image as img
-import PIL
+import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from matplotlib.colors import LinearSegmentedColormap
-%matplotlib inline
-
 from tqdm import tqdm
-import os
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+
 import torch
 import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import DataLoader
-from torchvision import datasets
+from torchvision import datasets, models, transforms
+from torchvision.datasets import ImageFolder
+from PIL import Image, UnidentifiedImageError
+
+# ================================================================
+# 1) PARAMÈTRES GÉNÉRAUX
+# ================================================================
 base_eval = "/content/drive/MyDrive/fairness/crop_5fold"
 subgroups = ["global"]
 classes = ["BENIGN", "MALIGNANT", "NORMAL"]
@@ -37,6 +39,9 @@ classes = ["BENIGN", "MALIGNANT", "NORMAL"]
 results = []      # Liste pour stocker les métriques par fold/sous-groupe
 cm_folds = []     # Liste pour stocker les matrices de confusion par fold
 
+# ================================================================
+# 2) FONCTIONS UTILITAIRES
+# ================================================================
 def load_model_for_fold(fold, device):
     model = models.densenet121(weights=models.DenseNet121_Weights.IMAGENET1K_V1)
     num_features = model.classifier.in_features
@@ -148,10 +153,8 @@ def matrice(eval_path, model, val_transform):
     return P_global, T_global, FPR, FNR, cm
 
 # ================================================================
-# 5) PIPELINE D'ÉVALUATION
+# 3) PIPELINE D'ÉVALUATION DES FOLDS ET SOUS-GROUPES
 # ================================================================
-print("\n🚀 Début du pipeline d'évaluation...")
-print("==============================================")
 
 for fold in tqdm(range(1, 6), desc="Évaluation des 5 folds"):
     print(f"\n📂 ÉVALUATION DU FOLD {fold}")
@@ -189,7 +192,7 @@ for fold in tqdm(range(1, 6), desc="Évaluation des 5 folds"):
 print("\n🎉 Évaluation des 5 folds terminée !")
 
 # ================================================================
-# 6) SAUVEGARDE DES RÉSULTATS
+# 4) SAUVEGARDE DES MÉTRIQUES
 # ================================================================
 df_results = pd.DataFrame(results)
 csv_dir = os.path.join(base_eval, "resultats")
@@ -200,7 +203,7 @@ print(f"💾 Résultats enregistrés dans : {csv_path}")
 
 
 # ================================================================
-# 8) MATRICE DE CONFUSION GLOBALE
+# 5) VISUALISATIONS ET MATRICES COMPARATIVES
 # ================================================================
 # ================================================================
 # MATRICE DE CONFUSION GLOBALE – POURCENTAGE SUR LA COLORBAR
