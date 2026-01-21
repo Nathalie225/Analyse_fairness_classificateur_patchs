@@ -136,6 +136,7 @@ Ces fichiers listent les noms des images selon le **type d’anomalie** (calcifi
 
 ##### Fichier de correspondance patient ( crée pendant le projet )
 - `patients_paths.csv`
+
   CSV regroupant, pour chaque patient :
   - la **mammographie**
   - le **masque de segmentation**
