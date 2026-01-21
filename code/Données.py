@@ -1,20 +1,11 @@
 """
-Préparation et Stratified K-Fold pour le dataset CBIS-DDSM
-===========================================================
-Ce script réalise les étapes suivantes :
-
-1. Importation des bibliothèques et montage de Google Drive.
-2. Lecture des CSV contenant les métadonnées des images (masse, calcification, DICOM).
-3. Nettoyage et uniformisation des noms de fichiers et annotations.
-4. Fusion des informations "crop", "full" et "ROI" pour chaque patient.
-5. Analyse de la distribution de la densité mammaire et du type d'anomalie.
-6. Création d'une stratification K-Fold (5 folds) en conservant la proportion des sous-classes.
-7. Sauvegarde des CSV de chaque fold pour l'entraînement et le test.
-8. Vérification et visualisation de la distribution des sous-classes par fold.
+Analyse des donnnées 
+====================================================
+Ce script permet d'analyser la répartition des mammographies selon les sous-classes.
 """
 
-# ============================================================
-# 1. Importation des bibliothèques
+# ==========================================================
+# Importations des  bibliothèques
 # ============================================================
 
 import os
@@ -38,23 +29,33 @@ from tqdm import tqdm
 %matplotlib inline
 
 # ============================================================
-# 2. Montage Google Drive
+# Ouverture de drive 
 # ============================================================
 from google.colab import drive
 drive.mount('/content/drive')  
 
 # ============================================================
-# 3. Chemins vers les fichiers CSV
+#                        Données 
+#
+#     Chargement des fichiers CSV de CBIS-DDSM contenant,
+#     chacun des métadonnées différentes sur les mammographies
+#     , les images de segmentation et les patchs
+#
 # ============================================================
 
+# images appartenant à la classe train de CBIS-DDSM et avec anomalie de type calcification
 calctrain_filepath = '/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/calc_case_description_train_set.csv'
+# images appartenant à la classe test de CBIS-DDSM et avec anomalie de type calcification
 calctest_filepath = '/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/calc_case_description_test_set.csv'
+# métadonnées associées aux noms de toutes les images
 dicom_filepath = '/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/dicom_info.csv'
+# images appartenant à la classe test de CBIS-DDSM et avec anomalie de type amas cellulaire
 masstest_filepath = '/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/mass_case_description_test_set.csv'
+# images appartenant à la classe train de CBIS-DDSM et avec anomalie de type amas cellulaire
 masstrain_filepath = '/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/mass_case_description_train_set.csv'
 
 # ============================================================
-# 4. Lecture des fichiers CSV
+# 1. Lecture des fichiers CSV
 # ============================================================
 
 df_masstrain = pd.read_csv(masstrain_filepath)
@@ -62,12 +63,17 @@ df_masstest = pd.read_csv(masstest_filepath)
 df_calctrain = pd.read_csv(calctrain_filepath)
 df_calctest = pd.read_csv(calctest_filepath)
 df = pd.read_csv(dicom_filepath)
-patient=pd.read_csv('/content/drive/MyDrive/fairness/patients_paths.csv')
+
 
 # ============================================================
-# 5. Fonction utilitaire : raccourcir les chemins trop longs
+#                 Fonctions principales
 # ============================================================
 
+# ============================================================
+# 1. FONCTION shorten_paths() 
+#     Prend en entrée le fichier et le nom de la colonne
+#     Modifie le fichier pour ne garder que le nom de l'image
+# ============================================================
 def shorten_paths(df, columns):
     df = df.copy()
     df.rename(columns=lambda x: x.strip(), inplace=True)
@@ -87,21 +93,16 @@ df_masstest  = shorten_paths(df_masstest, cols_to_shorten)
 df_calctrain = shorten_paths(df_calctrain, cols_to_shorten)
 df_calctest  = shorten_paths(df_calctest, cols_to_shorten)
 
-# ============================================================
-# 6. Uniformisation des colonnes
-# ============================================================
-
+# uniformisation des noms de colonne
 df_calctrain = df_calctrain.rename(columns={'breast density': 'breast_density'})
 df_calctest = df_calctest.rename(columns={'breast density': 'breast_density'})
 
-# ============================================================
-# 7. Séparation par type d'image : crop, full, ROI
-# ============================================================
-
+# récupère les noms des images dans différentes matrices selon le type d'image
 df_crop = df[df['SeriesDescription'] == 'cropped images'][['PatientID','image_path', 'SeriesInstanceUID']]
 df_full = df[df['SeriesDescription'] == 'full mammogram images'][['PatientID', 'image_path','SeriesInstanceUID']]
 df_ROI = df[df['SeriesDescription'] == 'ROI mask images'][['PatientID', 'image_path','SeriesInstanceUID']]
 
+# Harmonisation des matrices
 df_crop['PatientID'] = df_crop['PatientID'].str.extract(r'(P_\d{5})')
 df_full['PatientID'] = df_full['PatientID'].str.extract(r'(P_\d{5})')
 df_ROI['PatientID'] = df_ROI['PatientID'].str.extract(r'(P_\d{5})')
@@ -110,18 +111,14 @@ df_crop['image_path'] = df_crop['image_path'].str.split('/').str[-1]
 df_full['image_path'] = df_full['image_path'].str.split('/').str[-1]
 df_ROI['image_path'] = df_ROI['image_path'].str.split('/').str[-1]
 
-# ============================================================
-# 8. Ajout des colonnes 'forme' et 'type' pour chaque CSV
-# ============================================================
+# ajoute les informations type d'anomalie et répartition test/train aux csv
 
 df_masstrain['forme'], df_masstrain['type'] = 'mass', 'train'
 df_masstest['forme'], df_masstest['type'] = 'mass', 'test'
 df_calctrain['forme'], df_calctrain['type'] = 'calc', 'train'
 df_calctest['forme'], df_calctest['type'] = 'calc', 'test'
 
-# ============================================================
-# 9. Fusion des informations pour ROI, crop et full
-# ============================================================
+# fusion des fichiers pour récupérer les métadonnées selon le type d'image
 
 df_allROI = pd.concat([
     df_masstrain[['ROI mask file path', 'pathology', 'breast_density', 'forme', 'type','image view']],
@@ -144,7 +141,9 @@ df_allfull = pd.concat([
     df_calctest[['image file path', 'pathology', 'breast_density', 'forme', 'type','image view']]
 ], ignore_index=True)
 
+# création de fichiers contenant toutes les métadonnées associées à l'image selon le type d'image
 
+# 1. Image de segmentation
 df_ROI = df_ROI.merge(
     df_allROI [['ROI mask file path', 'pathology', 'breast_density', 'forme', 'type','image view']],
     left_on='SeriesInstanceUID',
@@ -152,7 +151,7 @@ df_ROI = df_ROI.merge(
     how='left'
 )
 
-
+# 2. Patch
 df_crop = df_crop.merge(
     df_allcrop[['cropped image file path', 'pathology', 'breast_density', 'forme', 'type','image view']],
     left_on='SeriesInstanceUID',
@@ -160,6 +159,7 @@ df_crop = df_crop.merge(
     how='left'
 )
 
+# 3. Mammographie
 df_full = df_full.merge(
     df_allfull[['image file path', 'pathology', 'breast_density', 'forme', 'type','image view']],
     left_on='SeriesInstanceUID',
@@ -167,9 +167,8 @@ df_full = df_full.merge(
     how='left'
 )
 
-# ============================================================
-# 10.a Préparation pour Stratified K-Fold
-# ============================================================
+# création d'un fichier contenant les informations sur les sous-groupes étudiés 
+# ce fichier permet de s'assurer d'une répartition homogène des images de chaque sous-groupe par fold
 
 df_crop_Kfold = df_crop[[
     "image_path",
@@ -179,13 +178,16 @@ df_crop_Kfold = df_crop[[
     "forme"
 ]]
 
-
+# enlève les données manquantes
 df_crop_Kfold = df_crop_Kfold[df_crop_Kfold['breast_density'] != 0]
 
 # ============================================================
-# 11. Analyse de la répartition : densité mammaire et type d'anomalie
+#                 Analyse des données
 # ============================================================
-# --- Densité mammaire ---
+
+# 1. Répartition de la densité mammaire
+
+# Définition des différents types de densité mammaire
 breast_density_cat = pd.DataFrame({
     "breast_density": [1, 2, 3, 4],
     "Densité de sein":[
@@ -202,8 +204,9 @@ mass_breast_density_pathology = mass_breast_density_pathology.reset_index(name='
 mass_bd_cat_pathology = mass_breast_density_pathology.merge(mass_breast_density, on='breast_density', how='left')
 
 
-# --- Type d'anomalie ---
+# 2. Répartition du type d'anomalie
 
+# Définition des différents types d'anomalie
 form_cat = pd.DataFrame({
     "forme": ['calc', 'mass'],
     "Type anomalie":[
@@ -211,19 +214,20 @@ form_cat = pd.DataFrame({
         'De type amas cellulaire']
 })
 
+
 form = df_crop_Kfold['forme'].value_counts().reset_index()
 form = form.merge(form_cat, on='forme', how='left')
 form_pathology = df_crop_Kfold.groupby(['pathology', 'forme'])['forme'].value_counts()
 form_pathology = form_pathology.reset_index(name='count')
 form_cat_pathology = form_pathology.merge(form, on='forme', how='left')
 
-# ============================================================
-# 12. Visualisation
-# ============================================================
+# 3. Visualisarion
 
 
 plt.figure(figsize=(16, 6))
-# Densité mammaire
+
+# 3.a Densité mammaire
+
 plt.subplot(1, 2, 1) 
 sns.barplot(
     data=mass_bd_cat_pathology,
@@ -233,7 +237,9 @@ sns.barplot(
 )
 plt.title("Répartition de la densité mammaire selon le diagnostique médical")
 plt.axis('on')  
-# Type d'anomalie
+
+# 3.b Type d'anomalie
+
 plt.subplot(1, 2, 2)  
 sns.barplot(
     data=form_cat_pathology,
@@ -249,9 +255,10 @@ plt.tight_layout()
 plt.show()
 
 # ============================================================
-# 10.b Préparation pour Stratified K-Fold
+#           Préparation de la validation croisée 5 fold 
 # ============================================================
-# Fusion des pathologies similaires
+
+# 1. Fusion des images "BENIGN_WITHOUT_CALLBACK" et "BENIGN"
 
 for i in range(len(df_crop_Kfold)):
 # "img" c'est le nom de l'image dans le dossier
@@ -269,39 +276,35 @@ for i in range(len(df_crop_Kfold)):
     if pathology=="BENIGN_WITHOUT_CALLBACK":
       df_crop_Kfold.loc[i, "pathology"] = "BENIGN"
 
-# Séparation en deux groupes pour la classification
+# 2. Séparation en deux groupes pour la classification
 
 BENIGN = df_crop_Kfold[df_crop_Kfold["pathology"] == "BENIGN"]
 MALIGNANT = df_crop_Kfold[df_crop_Kfold["pathology"] == "MALIGNANT"]
 df_all = pd.concat([BENIGN, MALIGNANT], ignore_index=True)
 
-# Supprimer les lignes invalides
+# 3. Supprimer les lignes invalides
 df_all = df_all.dropna(subset=["forme", "breast_density", "pathology"])
 df_all = df_all[(df_all["forme"].isin(["mass", "calc"])) &
                 (df_all["breast_density"].isin([1,2,3,4]))]
 
-# Uniformiser les strings
+# 4. Uniformiser les strings
 df_all["pathology"] = df_all["pathology"].str.upper()
 df_all["forme"] = df_all["forme"].str.lower()
 df_all["breast_density"] = df_all["breast_density"].astype(str)
 
-# Créer la sous-classe pour stratification
+# 5. Créer la sous-classe pour stratification
 df_all["strata"] = df_all["pathology"] + "_" + df_all["forme"] + "_" + df_all["breast_density"]
 
-# ============================================================
-# 13. Stratified K-Fold (5 folds)
-# ============================================================
+# 6. Répartition des images selon la validation croisée 5 fold
 
 n_splits = 5
 skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
 folds = [(train_idx, test_idx) for _, (train_idx, test_idx) in enumerate(skf.split(df_all, df_all["strata"]))]
 
+# 7. Création des csv contenant les métadonnées pour chaque fold
 
-
-# ============================================================
-# 14. Création des dossiers et sauvegarde des CSV par fold
-# ============================================================
 save_root = "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement"
+
 for i, fold in enumerate(folds):
     fold_id = i + 1
     train_idx, test_idx = fold
@@ -314,6 +317,7 @@ for i, fold in enumerate(folds):
     os.makedirs(os.path.join(fold_dir2, "test", "BENIGN"), exist_ok=True)
     os.makedirs(os.path.join(fold_dir2, "test", "MALIGNANT"), exist_ok=True)
 
+    # récupère les métadonnées
     train_df = df_all.iloc[train_idx]
     test_df  = df_all.iloc[test_idx]
 
@@ -323,14 +327,12 @@ for i, fold in enumerate(folds):
     test_df[test_df["pathology"]=="BENIGN"].to_csv(f"{fold_dir}/Métadonnées/test/benign_test_fold{fold_id}.csv", index=False)
     test_df[test_df["pathology"]=="MALIGNANT"].to_csv(f"{fold_dir}/Métadonnées/test/malignant_test_fold{fold_id}.csv", index=False)
 
-print("\n🎉 Stratified K-Fold terminé avec succès !")
-
-
-
 
 # ============================================================
-# 15. Vérification et visualisation des distributions
+#  Validation de la répartition homogène des images par fold
 # ============================================================
+
+
 # Dataset complet
 
 original_counts = df_all.groupby("strata").size().reset_index(name="count")
