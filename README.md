@@ -116,11 +116,13 @@ Ce dossier regroupe les résultats des évaluations d’équité :
 ## Structure du dépôt
 
 Le dépôt est organisé en plusieurs modules de code :
-- **'Création_classe_normal.py'**
-  Création d'une classe normale par fold et groupes test ou train. Sauvegarde des métadonnées associée à cette classe. 
-- **`donnees`**  
-  Analyse exploratoire des données, répartition en **5 folds**, en respectant une distribution homogène des sous-classes, et construction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation. .
-
+- **`Création_classe_normal.py`**
+  Cconstruction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
+  Sauvegarde des métadonnées associée à cette classe.
+  
+- **`donnees.py`**  
+  Analyse exploratoire des données, répartition en **5 folds**, en respectant une distribution homogène des sous-classes.
+  
 - **`recadrage224`**  
   Recadrage des patchs en **224 × 224 pixels** et comparaison statistique entre patchs recadrés et non recadrés.
 
