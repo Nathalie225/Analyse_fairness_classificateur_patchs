@@ -116,24 +116,25 @@ Ce dossier regroupe les résultats des évaluations d’équité :
 ## Structure du dépôt
 
 Le dépôt est organisé en plusieurs modules de code :
+
 - **`Création_classe_normal.py`**
   Cconstruction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
   Sauvegarde des métadonnées associée à cette classe.
   
-- **`donnees.py`**  
+- **`Donnees.py`**  
   Analyse exploratoire des données, répartition en **5 folds**, en respectant une distribution homogène des sous-classes.
   
-- **`recadrage224`**  
+- **`Recadrage224.py`**  
   Recadrage des patchs en **224 × 224 pixels** et comparaison statistique entre patchs recadrés et non recadrés.
 
-- **`entrainement`**  
+- **`Entrainement.py`**  
   Entraînement des modèles selon une validation croisée à 5 folds, avec ou sans pondération des classes dans la fonction de perte.
 
-- **`evaluation`**  
+- **`Evaluation.py`**  
   Évaluation des modèles entraînés à l’aide des métriques :
   - **Disparate Impact**
   - **Equality of Odds**
 
-- **`adversarial`**  
+- **`In-processing.py`**  
   Implémentation d’une méthode d’équité de type **in-processing**, basée sur une branche adversariale intégrée au modèle.
 
