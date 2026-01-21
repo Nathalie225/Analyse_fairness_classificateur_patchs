@@ -28,7 +28,7 @@ La version restructurée est accessible via le lien Google Drive suivant :
 
 https://drive.google.com/drive/folders/1aJVvIv6liJcf8Z_EUUGx_wAUQg8apbb1?usp=sharing
 
-L’arborescence se compose de **trois dossiers principaux** :
+L’arborescence se compose de **quatre dossiers principaux** :
 
 ---
 
@@ -110,6 +110,39 @@ Ce dossier regroupe les résultats des évaluations d’équité :
   - résultats obtenus avec pondération des classes
 - `In-processing` :
   - résultats obtenus avec la méthode adversariale
+---
+
+### 4. `CBIS_DDSM_CSV`
+
+Ce dossier contient l’ensemble des **fichiers CSV** associés au dataset **CBIS-DDSM**.
+
+##### Fichiers de répartition par type d’anomalie et split
+Ces fichiers listent les noms des images selon le **type d’anomalie** (calcification ou masse) et le **jeu de données** (train / test) de CBIS-DDSM :
+
+- `calc_case_description_train_set.csv`  
+  → Images de **calcifications** appartenant au **jeu d’entraînement**
+- `calc_case_description_test_set.csv`  
+  → Images de **calcifications** appartenant au **jeu de test**
+- `mass_case_description_train_set.csv`  
+  → Images de **masses** appartenant au **jeu d’entraînement**
+- `mass_case_description_test_set.csv`  
+  → Images de **masses** appartenant au **jeu de test**
+
+---
+
+##### Métadonnées des images
+- `dicom_info.csv`  
+  Contient les **métadonnées** associées aux images, notamment :
+  - densité mammaire
+  - type d’anomalie
+---
+
+##### Fichier de correspondance patient ( crée pendant le projet )
+- `patients_paths.csv`
+  CSV regroupant, pour chaque patient :
+  - la **mammographie**
+  - le **masque de segmentation**
+  - le **patch extrait**
 
 ---
 
