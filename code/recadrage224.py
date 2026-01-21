@@ -1,9 +1,24 @@
-from PIL import Image
+# ---------------------------------------------------------
+# PIPELINE COMPLET DE CROPPING ET ANALYSE D'IMAGES
+# ---------------------------------------------------------
+
 import os
-from tqdm import tqdm   # <--- BARRE DE PROGRESSION
+from PIL import Image
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+# -----------------------------
+# MONTAGE GOOGLE DRIVE
+# -----------------------------
 from google.colab import drive
 drive.mount('/content/drive')
-# fonction qui effectue exactement le même traitement qu'avant
+# -----------------------------
+# FONCTION : CROP DES IMAGES
+# -----------------------------
 def crop_images(image_folder, output_folder, crop_size=224):
     image_files = [f for f in os.listdir(image_folder)]
 
@@ -78,7 +93,7 @@ import os
 from tqdm import tqdm
 
 # -----------------------------
-# Fonction pour afficher un crop central
+# FONCTION : VISUALISER LE CROP CENTRAL
 # -----------------------------
 def show_center_crop(image_folder, crop_size=224, n_cols=5):
     image_files = [f for f in os.listdir(image_folder)]
@@ -149,7 +164,9 @@ all_heights = {}  # hauteurs par classe
 
 from tqdm import tqdm
 
-
+# -----------------------------
+# FONCTION : CALCUL STATISTIQUES TAILLE IMAGES
+# -----------------------------
 def taille_moyenne_pixels(dossier):
     largeurs = []
     hauteurs = []
@@ -173,7 +190,9 @@ def taille_moyenne_pixels(dossier):
     return m_largeur, m_hauteur, m_pixels, V_largeur, V_hauteur, largeurs, hauteurs
 
 
-# --- Dossiers ---
+# -----------------------------
+# EXEMPLE D'UTILISATION
+# -----------------------------
 dossiers = {
     "normal": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train/NORMAL",
     "benign": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train/BENIGN",
