@@ -131,9 +131,12 @@ Le dépôt est organisé en plusieurs modules de code :
   Entraînement des modèles selon une validation croisée à 5 folds, avec ou sans pondération des classes dans la fonction de perte.
 
 - **`Evaluation.py`**  
-  Évaluation des modèles entraînés à l’aide des métriques :
+  Évaluation de l'équité des modèles entrainés selon les métriques suivantes:
   - **Disparate Impact**
   - **Equality of Odds**
+    
+  Calcul des matrices de confusion sur 5 fold pour chaque modèle entrainé.
+
 
 - **`In-processing.py`**  
   Implémentation d’une méthode d’équité de type **in-processing**, basée sur une branche adversariale intégrée au modèle.
