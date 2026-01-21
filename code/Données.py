@@ -1,7 +1,9 @@
 """
 Analyse des donnnées 
 ====================================================
-Ce script permet d'analyser la répartition des mammographies selon les sous-classes.
+Ce script permet d'analyser la répartition des mammographies selon la densité mammaire et du type d'anomalie.
+De plus, il permet de réaliser les dossiers de la validation croisée et 
+vérifie une distribution homogène des images de chaque sous-classe par fold
 """
 
 # ==========================================================
