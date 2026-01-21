@@ -121,11 +121,10 @@ Le dépôt est organisé en plusieurs modules de code :
   Récupération du triplet d'image: mammographie, masque de segmentation et patch.
   Construction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
   Sauvegarde des métadonnées associée à cette classe.
-
   
 - **`Donnees.py`**  
-  Analyse exploratoire des données, répartition en **5 folds**, en respectant une distribution homogène des sous-classes.
-  
+  Analyse exploratoire des données. Répartition des patchs en **5 folds** en respectant une distribution homogène des sous-classes.
+
 - **`Recadrage224.py`**  
   Recadrage des patchs en **224 × 224 pixels** et comparaison statistique entre patchs recadrés et non recadrés.
 
