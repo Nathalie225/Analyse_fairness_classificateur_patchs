@@ -1,6 +1,16 @@
-# ---------------------------------------------------------
-# PIPELINE COMPLET DE CROPPING ET ANALYSE D'IMAGES
-# ---------------------------------------------------------
+"""
+Recadrage des patchs en 224x224 pixels
+====================================================
+Ce script permet d'homogénéiser la taille des patchs des classes "malin","bénin" et "normal".
+Pour cela on réalise un patch de taille 224 x 224 pixels au centre du patch initial si 
+la hauteur ou la largeur du patch est supérieur à 224 pixels. 
+On illustre ensuite l'homogénéisation de la taille des images.
+"""
+
+
+# ============================================================
+# Importations des  bibliothèques
+# ============================================================
 
 import os
 from PIL import Image
@@ -11,90 +21,91 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-# -----------------------------
-# MONTAGE GOOGLE DRIVE
-# -----------------------------
+# ============================================================
+# Ouverture de drive 
+# ============================================================
+
 from google.colab import drive
 drive.mount('/content/drive')
-# -----------------------------
-# FONCTION : CROP DES IMAGES
-# -----------------------------
+
+# ============================================================
+#                 Fonctions principales
+# ============================================================
+
+# ============================================================
+# 1. FONCTION crop_images() 
+#     Prend en entrée le lien vers les patchs, le lien de sauvegarde des patchs recadrés et la taille du crop final souhaité.
+#     Crée un nouveau dossier avec les images recadrées
+# ============================================================
+
+
 def crop_images(image_folder, output_folder, crop_size=224):
+    
+    # liste des patchs étudiés
     image_files = [f for f in os.listdir(image_folder)]
-
-    # BARRE DE PROGRESSION
+    
+    # traitement image par image
     for img_file in tqdm(image_files, desc=f"Cropping {os.path.basename(image_folder)}"):
-
+        # ouverture du patch
         img_path = os.path.join(image_folder, img_file)
         img = Image.open(img_path)
+        # récupère la taille du patch
         img_width, img_height = img.size
-
+        
+        # si la hauteur ou la largeur du patch est inférieure à 224 pixels alors on pas recadre
         if img_width < crop_size or img_height < crop_size:
             print(f"{img_file} est trop petite pour des crops ({img_width}x{img_height}), copie seule.")
+            # on sauvegarde l'image non recadrée dans le nouveau fichier
             img.save(os.path.join(output_folder, img_file))
             continue
+            
+        # Coordonnées du centre du patch
+        
+        left = (img_width - crop_size) // 2
+        top = (img_height - crop_size) // 2
+        right = left + crop_size
+        bottom = top + crop_size
 
-        n_crops_x = (img_width + crop_size - 1) // crop_size
-        n_crops_y = (img_height + crop_size - 1) // crop_size
+        # récupère le patch central recadré
+        
+        crop = img.crop((left, top, right, bottom))
 
-        step_x = (img_width - crop_size) // (n_crops_x - 1) if n_crops_x > 1 else crop_size
-        step_y = (img_height - crop_size) // (n_crops_y - 1) if n_crops_y > 1 else crop_size
-
-        crop_idx = 0
-        for i in range(n_crops_y):
-            for j in range(n_crops_x):
-                left = min(j * step_x, img_width - crop_size)
-                top = min(i * step_y, img_height - crop_size)
-                crop = img.crop((left, top, left + crop_size, top + crop_size))
-
-                crop_name = f"{os.path.splitext(img_file)[0]}_crop{crop_idx+1}.jpg"
-                crop.save(os.path.join(output_folder, crop_name))
-                crop_idx += 1
-
-    print(f"Terminé : {len(image_files)} images traitées dans {image_folder}")
+        # sauvegarde l'image
+        
+        crop_name = f"{os.path.splitext(img_file)[0]}_center224.jpg"
+        crop.save(os.path.join(output_folder, crop_name))
 
 
 # ---------------------------------------------------------
-# AUTOMATISATION DES 5 FOLDS, 2 SPLITS, ET 2 CLASSES
+#   Application automatique du recadrage sur différents dossiers
 # ---------------------------------------------------------
 
-base = "/content/drive/MyDrive/fairness/crop_5fold"
+base = "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement"
 
-#folds = ["crop_1fold", "crop_2fold", "crop_3fold", "crop_4fold", "crop_5fold"]
-folds = ["crop_4fold", "crop_5fold"]
-#splits = ["train", "test"]
-splits = ["train"]
-classes = ["NORMAL"]
+folds = ["1fold", "2fold", "3fold", "4fold", "5fold"]
+
+splits = ["train", "test"]
+
+classes = ["BENIGN","MALIGNANT","NORMAL"]
 
 for fold in folds:
     for split in splits:
         for cls in classes:
 
-            image_folder = f"{base}/{fold}/{split}/{cls}"
-            output_folder = f"{base}/{fold}/{split}_224/{cls}"
-
-            print("\n=== TRAITEMENT ===")
-            print("Images : ", image_folder)
-            print("Sauvegarde :", output_folder)
+            image_folder = f"{base}/{fold}/Patch_original/{split}/{cls}"
+            output_folder = f"{base}/{fold}/Patch_224x224pixels/{split}_224/{cls}"
 
             crop_images(image_folder, output_folder, crop_size=224)
 
 
 
-drive.flush_and_unmount()
-from google.colab import drive
-drive.mount('/content/drive', force_remount=True)
 
-# visualiser le crop central
+# ============================================================
+# 2. FONCTION show_center_crop() 
+#     Prend en entrée le lien vers les patchs.
+#     Affiche le patch central sur le patch initial.
+# ============================================================
 
-from PIL import Image
-import matplotlib.pyplot as plt
-import os
-from tqdm import tqdm
-
-# -----------------------------
-# FONCTION : VISUALISER LE CROP CENTRAL
-# -----------------------------
 def show_center_crop(image_folder, crop_size=224, n_cols=5):
     image_files = [f for f in os.listdir(image_folder)]
 
@@ -130,7 +141,6 @@ def show_center_crop(image_folder, crop_size=224, n_cols=5):
         plt.axis('off')
         plt.title("Original avec crop central")
         # Rectangle du crop
-        import matplotlib.patches as patches
         ax = plt.gca()
         rect = patches.Rectangle((left, top), crop_size, crop_size, linewidth=2, edgecolor='red', facecolor='none')
         ax.add_patch(rect)
@@ -146,34 +156,27 @@ def show_center_crop(image_folder, crop_size=224, n_cols=5):
 
 
 # -----------------------------
-# Exemple d'utilisation
+#  Exemple d'utilisation
 # -----------------------------
-image_folder = "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train/BENIGN"
+
+image_folder = "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_original/1fold/train/MALIGNANT"
 show_center_crop(image_folder, crop_size=224)
 
-# 224 mesure
 
-import os
-import numpy as np
-from PIL import Image
-from scipy.stats import f_oneway  # test ANOVA
+# ============================================================
+# 3. FONCTION taille_moyenne_pixels() 
+#     Prend en entrée le lien du dossier.
+#     Renvoie les distributions statistiques de la taille des images du dossier.
+# ============================================================
 
-U = []   # pour stocker les stats
-all_widths = {}   # largeurs par classe
-all_heights = {}  # hauteurs par classe
-
-from tqdm import tqdm
-
-# -----------------------------
-# FONCTION : CALCUL STATISTIQUES TAILLE IMAGES
-# -----------------------------
 def taille_moyenne_pixels(dossier):
+    # initialise
     largeurs = []
     hauteurs = []
-
+    # liste des noms des patchs
     fichiers = os.listdir(dossier)
 
-    # Boucle avec barre de progression
+    # Récupère les données de taille sur tous les patchs du dossier
     for f in tqdm(fichiers, desc=f"Traitement {os.path.basename(dossier)}"):
         chemin = os.path.join(dossier, f)
         img = Image.open(chemin)
@@ -181,6 +184,8 @@ def taille_moyenne_pixels(dossier):
         largeurs.append(largeur)
         hauteurs.append(hauteur)
 
+    # Calcul statistique de la répartition de taille des images du dossier
+    
     m_largeur = np.mean(largeurs)
     m_hauteur = np.mean(hauteurs)
     V_largeur = np.var(largeurs)
@@ -190,19 +195,27 @@ def taille_moyenne_pixels(dossier):
     return m_largeur, m_hauteur, m_pixels, V_largeur, V_hauteur, largeurs, hauteurs
 
 
-# -----------------------------
-# EXEMPLE D'UTILISATION
-# -----------------------------
+# ---------------------------------------------------------
+#   Comparaison des distributions de taille selon les dossiers (on réalise la comparaison sur les données train du fold1)
+# ---------------------------------------------------------
+
+# Initialisation 
+U = []   # pour stocker les stats
+all_widths = {}   # largeurs par classe
+all_heights = {}  # hauteurs par classe
+
+# Dossiers à recadrer et dossier recadré
+
 dossiers = {
-    "normal": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train/NORMAL",
-    "benign": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train/BENIGN",
-    "malignant": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train/MALIGNANT",
-    "normal_224": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train_224/NORMAL",
-    "benign_224": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train_224/BENIGN",
-    "malignant_224": "/content/drive/MyDrive/fairness/crop_5fold/crop_1fold/train_224/MALIGNANT",
+    "normal": "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_original/1fold/train/NORMAL",
+    "benign": "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_original/1fold/train/BENIGN",
+    "malignant": "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_original/1fold/train/MALIGNANT",
+    "normal_224": "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_224x224pixels/1fold/train/NORMAL",
+    "benign_224": "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_224x224pixels/1fold/train/BENIGN",
+    "malignant_224": "/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/Patch_224x224pixels/1fold/train/MALIGNANT",
 }
 
-# --- Calcul stats locales + stockage largeurs/hauteurs ---
+# calcul statistique de taille par dossier et sauvegarde des données
 for type_dossier, chemin in dossiers.items():
     larg, haut, pix, vlar, vhaut, Lw, Lh = taille_moyenne_pixels(chemin)
     U.append((larg, haut, pix, vlar, vhaut))
@@ -214,9 +227,8 @@ for type_dossier, chemin in dossiers.items():
     print(f"    Variances : largeur={vlar:.1f}, hauteur={vhaut:.1f}")
     print("")
 
-import pandas as pd
 
-# Largeurs avec colonne version
+# Largeurs 
 df_width = pd.DataFrame([
     {"classe": k.replace("_224",""),
      "version": "224" if "_224" in k else "original",
@@ -234,8 +246,7 @@ df_height = pd.DataFrame([
     for h in Lh
 ])
 
-import seaborn as sns
-import matplotlib.pyplot as plt
+# Visualisation des résultats
 
 plt.figure(figsize=(14,5))
 
