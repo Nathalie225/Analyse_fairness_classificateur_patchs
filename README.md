@@ -118,8 +118,10 @@ Ce dossier regroupe les résultats des évaluations d’équité :
 Le dépôt est organisé en plusieurs modules de code :
 
 - **`Création_classe_normal.py`**
-  Cconstruction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
+  Récupération du triplet d'image: mammographie, masque de segmentation et patch.
+  Construction de la classe `NORMAL` à partir des mammographies complètes et des masques de segmentation.
   Sauvegarde des métadonnées associée à cette classe.
+
   
 - **`Donnees.py`**  
   Analyse exploratoire des données, répartition en **5 folds**, en respectant une distribution homogène des sous-classes.
