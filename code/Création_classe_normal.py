@@ -34,9 +34,11 @@ drive.mount("/content/drive")
 
 
 # ============================================================
-# Données: 
-# Chargement du fichier CSV "patients_paths.csv" contenant,
-# pour chaque patient, les chemins des triplets d’images
+#                        Données 
+#
+#     Chargement du fichier CSV "patients_paths.csv" contenant,
+#      pour chaque patient, les chemins des triplets d’images
+#
 # ============================================================
 patient = pd.read_csv('/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/CBIS_DDSM_CSV/patients_paths.csv')
 
@@ -47,7 +49,7 @@ patient = patient.dropna(subset=['crop']).copy()
 patient["crop"] = [basename(x) for x in patient["crop"]]
 
 # ============================================================
-# Fonctions principales
+#                 Fonctions principales
 # ============================================================
 
 
@@ -138,10 +140,8 @@ def extract_patches(ROI, img):
     
 # ============================================================
 # 3. FONCTION save_patches() 
-# 
 #     Prend en entrée les patches, la destination et le nom des images                        
 #     Sauvegarde les patches dans le bon dossier
-# 
 # ============================================================
 
 
