@@ -19,7 +19,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
 from collections import Counter
-
+from torch.autograd import Function
 # ============================================================
 # Ouverture de drive 
 # ============================================================
@@ -29,7 +29,11 @@ drive.mount('/content/drive')
 
 # ============================================================
 #                    DATASET FAIRNESS
+#  FairnessImageFolder permet d'ajouter une donnée sensible
+#  à ImageFolder pour renvoyer (image, label, sensitive_attribute) et pas que (image, label)
+#  Ici sensitive_attribute est égale à 1 si il s'agit d'une densité mammaire de type 1 et que l'anomalie est de type calcification
 # ============================================================
+
 class FairnessImageFolder(Dataset):
     def __init__(self, root, csv_df, transform=None):
         """
@@ -45,6 +49,7 @@ class FairnessImageFolder(Dataset):
         self.csv_map = {}
         for _, row in df.iterrows():
             fname_csv = os.path.basename(row["cropped image file path"])  # ex: 1.3.6.1.4.1...jpg
+            # définit la variable sensible "D1-calc"
             s = int(row["breast_density"] == 1 and row["forme"].lower() == "calc")
             self.csv_map[fname_csv] = s
 
@@ -78,6 +83,7 @@ class FairnessImageFolder(Dataset):
         path, _ = self.base.samples[idx]
         fname = os.path.basename(path)
         s = self.sensitive_map[fname]
+        # renvoie l'image, le label et la variable sensible
         return x, y, torch.tensor(s, dtype=torch.long)
 
 
@@ -123,20 +129,24 @@ val_dataset   = datasets.ImageFolder('/content/drive/MyDrive/Stage_ARIA_3mois_Do
 #                     DATASETS & DATALOADERS
 # ============================================================
 
+# 1. Pour les données d'entrainement
+
 # Lis les CSV ( à modifier selon le fold choisit )
 df_normal = pd.read_csv("/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/1fold/Métadonnées/train/normal_train_fold1.csv")
 df_benign = pd.read_csv("/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/1fold/Métadonnées/train/benign_train_fold1.csv")
 df_malignant = pd.read_csv("/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/1fold/Métadonnées/train/malignant_train_fold1.csv")
 
-# Concaténation
+# Concaténation des métadonnées
 df_all = pd.concat([df_normal, df_benign, df_malignant], ignore_index=True)
 
+# Création du dataset d'entrainement avec la variable sensible ajouté 
 train_dataset = FairnessImageFolder(
     root="/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/1fold/Patch_224x224pixels/train_224",
     csv_df=df_all,
     transform=train_transform
 )
 
+# 2. Pour les données d'évaluation
 
 # Lis les CSV
 df_normal = pd.read_csv("/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/1fold/Métadonnées/test/normal_test_fold1.csv")
@@ -146,7 +156,7 @@ df_malignant = pd.read_csv("/content/drive/MyDrive/Stage_ARIA_3mois_Données_Ré
 # Concaténation
 df_all = pd.concat([df_normal, df_benign, df_malignant], ignore_index=True)
 
-
+# Création du dataset d'entrainement avec la variable sensible ajouté 
 val_dataset = FairnessImageFolder(
     root="/content/drive/MyDrive/Stage_ARIA_3mois_Données_Réorganisées/Patchs_Mammographie_5fold/Entrainement/1fold/Patch_224x224pixels/test_224",
     csv_df=df_all,
@@ -158,6 +168,7 @@ val_dataset = FairnessImageFolder(
 #                  CHARGEMENT DES DATASETS
 # ============================================================
 
+# Création de patchs
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=2)
 val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_workers=2)
 
@@ -166,19 +177,25 @@ val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_worke
 #                   INITIALISATION DU MODÈLE
 # ============================================================
 
-# Gradient Reversal Layer
-from torch.autograd import Function
 
+# On définit:
+# lambda_, le coefficient de renversement du gradient
+# x, le tenseur d'entrée fournit par le classificateur
+
+# Fonction permettant de réaliser le gradient inverse
 class GradientReversalFunction(Function):
     @staticmethod
+    # pas de modification de x dans le forward
     def forward(ctx, x, lambda_):
         ctx.lambda_ = lambda_
         return x.view_as(x)
 
     @staticmethod
+    # gradient inversé pour maximiser la fonction de perte de l'adversaire
     def backward(ctx, grad_output):
         return grad_output.neg() * ctx.lambda_, None
 
+# couche permettant d'appliquer le gradient inverse
 class GradientReversalLayer(nn.Module):
     def __init__(self, lambda_=1.0):
         super().__init__()
@@ -187,11 +204,15 @@ class GradientReversalLayer(nn.Module):
     def forward(self, x):
         return GradientReversalFunction.apply(x, self.lambda_)
 
-# Adversary
+# Prédicteur de la variable sensible à partir de x
+
 class Adversary(nn.Module):
+
     def __init__(self, input_dim, hidden_dim=128):
         super().__init__()
+        # crée une couche grl qui réaliser le gradient inverse
         self.grl = GradientReversalLayer(lambda_=1.0)
+        # ces données sont envoyée à un classificateur simple
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
@@ -203,19 +224,22 @@ class Adversary(nn.Module):
         x = self.grl(x)
         return self.net(x)
 
-# DenseNet pré-entrainé
+# Initialisation du modèle principale
+
 model = models.densenet121(weights=models.DenseNet121_Weights.IMAGENET1K_V1)
 
 # On FREEZE totalement les features au début
 for param in model.features.parameters():
     param.requires_grad = False 
 
-# Nouveau classifier
 num_features = model.classifier.in_features
 model.classifier = nn.Sequential(
     nn.Dropout(0.3),
     nn.Linear(num_features, num_classes)
 )
+
+# Envoi sur device des deux modèles
+
 model = model.to(device)
 
 adversary = Adversary(num_features).to(device)
@@ -234,6 +258,7 @@ scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
 #         FORWARD AVEC FEATURES
 # ============================================================
 def forward_with_features(model, x):
+    # extraction des features du modèle
     features = model.features(x)
     features = nn.functional.relu(features, inplace=True)
     features = nn.functional.adaptive_avg_pool2d(features, (1,1)).view(features.size(0), -1)
@@ -255,13 +280,15 @@ def train_one_epoch():
     for images, labels, sens in tqdm(train_loader, desc="Training"):
         images, labels, sens = images.to(device), labels.to(device), sens.to(device)
         optimizer.zero_grad()
-
+        # récupère les sorties du modèle et les features
         outputs, features = forward_with_features(model, images)
+        # calcule la fonction de perte pour la classifier principal
         loss_cls = criterion(outputs, labels)
-
+        # récupère les prédictions de classifier adversarial
         outputs_sens = adversary(features)
+        #calcule la loss entre les variables sensibles prédites et réelles
         loss_adv = criterion_adv(outputs_sens, sens)
-
+        
         loss = loss_cls + loss_adv
         loss.backward()
         optimizer.step()
