@@ -2,7 +2,7 @@
 Evaluation de l'équité des modèles entrainés
 ====================================================
 Ce script utilise les métriques d'équité : Disparate impact et equality of odds
-On à un premier script qui permet d'afficher la matrice de confusion globale ( les 5 folds confondus)
+On a un premier script qui permet d'afficher la matrice de confusion globale ( les 5 folds confondus)
 Puis un second script qui permet d'afficher les matrices de confusion par fold et par sous groupes
 Ceci permet aussi de récupérer les métriques permettant de calculer le disparate impact et l'equality of odds
 """
