@@ -55,7 +55,7 @@ Ce dossier contient les **masques de segmentation** permettant de localiser les 
 ### 3. `Patchs_Mammographie_5fold`
 
 Ce dossier contient les **patchs de mammographie** centrés sur les anomalies annotées par les cliniciens.  
-Les données sont organisées selon une **validation croisée en 5 folds**, et se divisent en quatres sous-dossiers principaux :
+Les données sont organisées selon une **validation croisée en 5 folds**, et se divisent en quatre sous-dossiers principaux :
 
 #### a. `Entrainement`
 
